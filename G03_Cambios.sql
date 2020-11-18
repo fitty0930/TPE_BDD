@@ -1,4 +1,5 @@
 /* ELABORACIÓN DE RESTRICCIONES  */
+-- B
 /* a. La fecha del primer comentario tiene que ser anterior
    a la fecha del último comentario si este no es nulo */
 
@@ -115,3 +116,73 @@ CREATE TRIGGER TR_G03_COMENTAR_JUEGO
     ON G03_VOTO
     FOR EACH ROW
 EXECUTE PROCEDURE FN_G03_COMENTAR_JUEGO();
+
+-- C
+/*  1- Se debe mantener sincronizadas las tablas COMENTA y COMENTARIO en los siguientes aspectos:
+La primera vez que se inserta un comentario de un usuario para un juego se debe hacer el insert conjunto
+    en ambas tablas, colocando la fecha del primer comentario y última fecha comentario en nulo.
+Los posteriores comentarios sólo deben modificar la fecha de último comentario e insertar en COMENTARIO
+*/
+
+
+/* 2- Dado un patrón de búsqueda devolver todos los datos de el o los usuarios junto con la cantidad de
+   juegos que ha jugado y la cantidad de votos que ha realizado. */
+
+--D
+/* COMENTARIOS_MES: Listar todos los comentarios realizados durante el último mes descartando aquellos
+   juegos de la Categoría “Sin Categorías”. */
+
+CREATE VIEW COMENTARIOS_MES AS
+SELECT comentario, fecha_comentario
+FROM G03_COMENTARIO
+WHERE G03_COMENTARIO.id_juego IN (SELECT id_juego
+                                  FROM g03_comenta
+                                  WHERE id_juego IN (
+                                      SELECT id_juego
+                                      FROM g03_juego
+                                      WHERE id_categoria <> null
+                                  ))
+  AND fecha_comentario BETWEEN NOW() - '1 month'::interval AND NOW();
+-- actualizable, no rompe ninguna regla
+
+/* USUARIOS_COMENTADORES: Listar aquellos usuarios que han comentado TODOS los juegos durante el
+   último año, teniendo en cuenta que sólo pueden comentar aquellos juegos que han jugado.
+*/
+
+--teniendo en cuenta que sólo pueden comentar aquellos juegos que han jugado.
+-- ESTA IMPLEMENTADO EN trigger B sub d
+
+CREATE VIEW USUARIOS_COMENTADORES AS
+SELECT *
+FROM g03_usuario
+WHERE id_usuario IN (SELECT G03_COMENTA.id_usuario
+                     FROM g03_comenta
+                     WHERE G03_COMENTA.id_usuario IN (
+                         SELECT id_usuario
+                         FROM g03_comentario
+                         WHERE fecha_comentario
+                                   BETWEEN NOW() - '1 year'::interval AND NOW()
+                         HAVING COUNT(id_juego) = (SELECT COUNT(id_juego) FROM G03_JUEGO)));
+
+/* LOS_20_JUEGOS_MAS_PUNTUADOS: Realizar el ranking de los 20 juegos mejor puntuados por los Usuarios.
+   El ranking debe ser generado considerando el promedio del valor puntuado por los usuarios y que el
+   juego hubiera sido calificado más de 5 veces. */
+
+CREATE VIEW LOS_20_JUEGOS_MAS_PUNTUADOS AS
+SELECT *
+FROM g03_juego
+WHERE id_juego IN (SELECT id_juego
+                   FROM g03_voto
+                   HAVING count(*) > 5
+                   ORDER BY AVG(valor_voto) ASC
+                   LIMIT 20);
+
+/* LOS_10_JUEGOS_MAS_JUGADOS: Generar una vista con los 10 juegos más jugados. */
+
+CREATE VIEW LOS_10_JUEGOS_MAS_JUGADOS AS
+SELECT *
+FROM g03_juego
+WHERE id_juego IN (SELECT id_juego
+                   FROM g03_juega
+                   ORDER BY COUNT(id_juego) ASC
+                   LIMIT 10);
