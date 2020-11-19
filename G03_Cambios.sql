@@ -44,8 +44,7 @@ BEGIN
     FROM G03_COMENTARIO
     WHERE id_juego = NEW.id_juego
       AND id_usuario = NEW.id_usuario
-      AND fecha_comentario = NEW.fecha_comentario;
-
+      AND date(fecha_comentario) = date(NEW.fecha_comentario);
     IF (fecha_comentario_h) THEN
         RAISE EXCEPTION 'Ya comentaste hoy';
     END IF;
@@ -84,7 +83,7 @@ $$
 
 /* este es una asercion (? */
 CREATE TRIGGER TR_G03_RECOMENDACION_VOTADO
-    BEFORE INSERT
+    BEFORE INSERT OR UPDATE of id_usuario,id_juego
     ON G03_RECOMENDACION
     FOR EACH ROW
 EXECUTE PROCEDURE FN_G03_RECOMENDACION_VOTADO();
@@ -93,16 +92,16 @@ EXECUTE PROCEDURE FN_G03_RECOMENDACION_VOTADO();
 CREATE OR REPLACE FUNCTION FN_G03_COMENTAR_JUEGO() RETURNS Trigger AS
 $$
 DECLARE
-    id_user G03_VOTO.id_usuario%type;
-    id_game G03_VOTO.id_juego%type;
+    id_user g03_comentario.id_usuario%type;
+    id_game g03_comentario.id_juego%type;
 BEGIN
     SELECT id_usuario, id_juego
     into id_user, id_game
     FROM G03_JUEGA
     WHERE id_usuario = NEW.id_usuario
       AND id_juego = NEW.id_juego;
-    IF (id_user = NEW.id_usuario
-        AND id_game = NEW.id_juego) THEN
+    IF (id_user <> NEW.id_usuario
+        AND id_game <> NEW.id_juego) THEN
         RAISE EXCEPTION 'Solo podras votar juegos que hays jugado';
     END IF;
     RETURN NEW;
@@ -113,7 +112,7 @@ $$
 /* este es una asercion (? */
 CREATE TRIGGER TR_G03_COMENTAR_JUEGO
     BEFORE INSERT
-    ON G03_VOTO
+    ON g03_comentario
     FOR EACH ROW
 EXECUTE PROCEDURE FN_G03_COMENTAR_JUEGO();
 
@@ -122,12 +121,64 @@ EXECUTE PROCEDURE FN_G03_COMENTAR_JUEGO();
 La primera vez que se inserta un comentario de un usuario para un juego se debe hacer el insert conjunto
     en ambas tablas, colocando la fecha del primer comentario y última fecha comentario en nulo.
 Los posteriores comentarios sólo deben modificar la fecha de último comentario e insertar en COMENTARIO
-*/
+*/ /*creo xd*/
 
+CREATE OR REPLACE FUNCTION FN_G03_AUDIT_COMENTA_COMENTARIO()
+RETURNS Trigger AS
+$$
+DECLARE
+    fecha_primer_coment  g03_comenta.fecha_primer_com%type;
+BEGIN
+    SELECT fecha_primer_com into fecha_primer_coment
+    FROM g03_comenta
+    WHERE g03_comenta.id_usuario = NEW.id_usuario
+    AND g03_comenta.id_juego = NEW.id_juego;
+    IF NOT EXISTS(fecha_primer_coment) THEN
+        INSERT INTO g03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) VALUES (NEW.id_usuario,NEW.id_juego,NEW.fecha_comentario, null);
+    ELSE
+        UPDATE g03_comenta SET fecha_ultimo_com = NEW.fecha_comentario WHERE id_juego = NEW.id_juego AND id_usuario = NEW.id_usuario;
+    END IF;
+END;
+$$
+    LANGUAGE 'plpgsql';
+
+
+CREATE TRIGGER TR_G03_AUDIT_COMENTA_COMENTARIO
+    AFTER INSERT OR UPDATE OF id_usuario, id_juego, fecha_comentario
+    ON g03_comentario
+    FOR EACH ROW
+EXECUTE PROCEDURE FN_G03_AUDIT_COMENTA_COMENTARIO();
 
 /* 2- Dado un patrón de búsqueda devolver todos los datos de el o los usuarios junto con la cantidad de
    juegos que ha jugado y la cantidad de votos que ha realizado. */
 
+CREATE OR REPLACE FUNCTION FN_G03_PATRON_BUSQUEDA_APELLIDO( patron varchar)
+RETURNS TABLE (
+        id_usuario g03_usuario.id_usuario%type,
+        apellido g03_usuario.apellido%type,
+        nombre g03_usuario.nombre%type,
+        email g03_usuario.email%type,
+        id_tipo_usuario g03_usuario.id_tipo_usuario%type,
+        password g03_usuario.password%type,
+        cant_juegos_jugados INT,
+        cant_votos  INT
+)
+AS $$
+BEGIN
+    RETURN QUERY SELECT
+       id_usuario, apellido, nombre, email, id_tipo_usuario, password,
+                        (SELECT COUNT(*)
+                        FROM g03_juega
+                        GROUP BY g03_usuario.id_usuario),
+                        (SELECT COUNT(*)
+                        FROM g03_voto
+                            GROUP BY g03_usuario.id_usuario)
+    FROM
+        g03_usuario
+    WHERE
+        g03_usuario.apellido ILIKE patron ;
+END; $$
+LANGUAGE 'plpgsql';
 --D
 /* COMENTARIOS_MES: Listar todos los comentarios realizados durante el último mes descartando aquellos
    juegos de la Categoría “Sin Categorías”. */
