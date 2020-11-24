@@ -152,7 +152,7 @@ EXECUTE PROCEDURE FN_G03_AUDIT_COMENTA_COMENTARIO();
 /* 2- Dado un patrón de búsqueda devolver todos los datos de el o los usuarios junto con la cantidad de
    juegos que ha jugado y la cantidad de votos que ha realizado. */
 
-CREATE OR REPLACE FUNCTION FN_G03_PATRON_BUSQUEDA_APELLIDO( patron varchar)
+CREATE OR REPLACE FUNCTION FN_G03_PATRON_BUSQUEDA_APELLIDO(patron varchar)
 RETURNS TABLE (
         id_usuario g03_usuario.id_usuario%type,
         apellido g03_usuario.apellido%type,
@@ -166,23 +166,22 @@ RETURNS TABLE (
 AS $$
 BEGIN
     RETURN QUERY SELECT
-       id_usuario, apellido, nombre, email, id_tipo_usuario, password,
-                        (SELECT COUNT(*)
-                        FROM g03_juega
-                        GROUP BY g03_usuario.id_usuario),
-                        (SELECT COUNT(*)
-                        FROM g03_voto
-                            GROUP BY g03_usuario.id_usuario)
+       g03_usuario.id_usuario, apellido, nombre, email, id_tipo_usuario, password, coalesce(cant_juegos_jugados,0) as cant_juegos_jugados, coalesce(cant_votos,0) as cant_votos
     FROM
-        g03_usuario
+        g03_usuario left join (SELECT id_usuario, COUNT(*) as cant_juegos_jugados
+                        FROM g03_juega
+                        GROUP BY id_usuario) as juega on (g03_usuario.id_usuario = juega.id_usuario)
+            left join  (SELECT id_usuario, COUNT(*) as cant_votos
+                        FROM g03_voto
+                        GROUP BY id_usuario) as voto on (g03_usuario.id_usuario = voto.id_usuario)
     WHERE
-        g03_usuario.apellido ILIKE patron ;
+        g03_usuario.apellido ILIKE '%'||patron||'%';
+
 END; $$
 LANGUAGE 'plpgsql';
 --D
 /* COMENTARIOS_MES: Listar todos los comentarios realizados durante el último mes descartando aquellos
    juegos de la Categoría “Sin Categorías”. */
-
 CREATE VIEW COMENTARIOS_MES AS
 SELECT comentario, fecha_comentario
 FROM G03_COMENTARIO
@@ -191,7 +190,11 @@ WHERE G03_COMENTARIO.id_juego IN (SELECT id_juego
                                   WHERE id_juego IN (
                                       SELECT id_juego
                                       FROM g03_juego
-                                      WHERE id_categoria <> null
+                                      WHERE id_categoria IN (
+                                          SELECT id_categoria
+                                            FROM g03_categoria
+                                                WHERE descripcion = 'Sin Categorías'
+                                          )
                                   ))
   AND fecha_comentario BETWEEN NOW() - '1 month'::interval AND NOW();
 -- actualizable, no rompe ninguna regla
