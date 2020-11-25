@@ -3,6 +3,7 @@
 /* a. La fecha del primer comentario tiene que ser anterior
    a la fecha del último comentario si este no es nulo */
 
+-- esta hay que cambiarla
 CREATE OR REPLACE FUNCTION FN_G03_FECHA_COMENTARIOS() RETURNS Trigger AS
 $$
 DECLARE
@@ -72,15 +73,15 @@ BEGIN
     FROM G03_VOTO
     WHERE id_usuario = NEW.id_usuario
       AND id_juego = NEW.id_juego;
-    IF (id_user = NEW.id_usuario
-        AND id_game = NEW.id_juego) THEN
-        RAISE EXCEPTION 'Solo podras recomendar juegos que no hayas votado';
+    IF (id_user <> NEW.id_usuario
+        AND id_game <> NEW.id_juego) THEN
+        RAISE EXCEPTION 'Solo podras recomendar juegos que hayas votado';
     END IF;
     RETURN NEW;
 END
 $$
     LANGUAGE 'plpgsql';
-
+-- modificado porque solo puedo recomendar juegos que SI haya votado
 /* este es una asercion (? */
 CREATE TRIGGER TR_G03_RECOMENDACION_VOTADO
     BEFORE INSERT OR UPDATE of id_usuario,id_juego
@@ -102,7 +103,7 @@ BEGIN
       AND id_juego = NEW.id_juego;
     IF (id_user <> NEW.id_usuario
         AND id_game <> NEW.id_juego) THEN
-        RAISE EXCEPTION 'Solo podras votar juegos que hays jugado';
+        RAISE EXCEPTION 'Solo podras votar juegos que hayas jugado';
     END IF;
     RETURN NEW;
 END
