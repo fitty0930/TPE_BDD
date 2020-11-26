@@ -3,22 +3,22 @@
 /* a. La fecha del primer comentario tiene que ser anterior
    a la fecha del último comentario si este no es nulo */
 
--- esta hay que cambiarla
+-- MODIFICADO PORQUE ESTABA MAL
 CREATE OR REPLACE FUNCTION FN_G03_FECHA_COMENTARIOS() RETURNS Trigger AS
 $$
 DECLARE
-    fecha_primero G03_COMENTARIO.fecha_comentario%type;
+    fecha_primero G03_COMENTA.fecha_primer_com%type;
 BEGIN
-    SELECT fecha_comentario
+    SELECT fecha_primer_com
     INTO fecha_primero
-    FROM G03_COMENTARIO
-    WHERE id_comentario = NEW.id_comentario
+    FROM G03_COMENTA
+    WHERE id_usuario = NEW.id_usuario
       AND id_juego = NEW.id_juego
-    ORDER BY id_comentario, id_juego ASC
+    ORDER BY id_usuario, id_juego ASC
     limit 1;
-    IF (fecha_primero > NEW.fecha_comentario) THEN
+    IF (fecha_primero > NEW.fecha_ultimo_com) THEN
         RAISE EXCEPTION 'La fecha de su comentario % es anterior a la fecha del primer comentario %',
-            NEW.fecha_comentario, fecha_primero;
+            NEW.fecha_ultimo_com, fecha_primero;
     END IF;
     RETURN NEW;
 END
@@ -28,9 +28,10 @@ $$
 /* este es un trigger de tabla */
 CREATE TRIGGER TR_G03_FECHA_COMENTARIOS
     BEFORE INSERT
-    ON G03_COMENTARIO
+    ON G03_COMENTA
     FOR EACH ROW
-    WHEN (NEW.comentario <> null)
+    WHEN ((SELECT fecha_ultimo_com FROM g03_comenta
+    WHERE g03_comenta.id_usuario= NEW.id_usuario AND g03_comenta.id_juego=NEW.id_juego) <> null)
 EXECUTE PROCEDURE FN_G03_FECHA_COMENTARIOS();
 
 
