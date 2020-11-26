@@ -3,6 +3,16 @@
 /* a. La fecha del primer comentario tiene que ser anterior
    a la fecha del último comentario si este no es nulo */
 
+/*
+ALTER TABLE g03_comenta
+    ADD CONSTRAINT CK_FECHA_COMENTARIOS
+        CHECK (NOT EXISTS(
+                SELECT 1
+                FROM g03_comenta
+                WHERE fecha_primer_com > fecha_ultimo_com
+            ));
+*/
+
 -- MODIFICADO PORQUE ESTABA MAL
 CREATE OR REPLACE FUNCTION FN_G03_FECHA_COMENTARIOS() RETURNS Trigger AS
 $$
@@ -36,6 +46,17 @@ EXECUTE PROCEDURE FN_G03_FECHA_COMENTARIOS();
 
 
 /* b.	Cada usuario sólo puede comentar una vez al día cada juego */
+/*
+ALTER TABLE g03_comentario
+    ADD CONSTRAINT CK_UN_COMENTARIO_DIARIO
+        CHECK (NOT EXISTS(
+                SELECT 1
+                FROM g03_comentario
+                group by extract(day from fecha_comentario)
+                having COUNT(*)>1
+            ));
+*/
+
 CREATE OR REPLACE FUNCTION FN_G03_UN_COMENTARIO_DIARIO() RETURNS Trigger AS
 $$
 DECLARE
@@ -63,6 +84,17 @@ CREATE TRIGGER TR_G03_UN_COMENTARIO_DIARIO
 EXECUTE PROCEDURE FN_G03_UN_COMENTARIO_DIARIO();
 
 /* c.	Un usuario no puede recomendar un juego si no ha votado previamente dicho juego */
+/*
+ALTER TABLE g03_recomendacion
+    ADD CONSTRAINT CK_RECOMENDACION_VOTADO
+        CHECK (NOT EXISTS(
+                SELECT 1
+                FROM g03_recomendacion
+                WHERE id_usuario, id_juego NOT IN (SELECT id_usuario, id_juego
+                                                   FROM g03_voto)
+            ));
+*/
+
 CREATE OR REPLACE FUNCTION FN_G03_RECOMENDACION_VOTADO() RETURNS Trigger AS
 $$
 DECLARE
@@ -91,6 +123,17 @@ CREATE TRIGGER TR_G03_RECOMENDACION_VOTADO
 EXECUTE PROCEDURE FN_G03_RECOMENDACION_VOTADO();
 
 /* d.	Un usuario no puede comentar un juego que no ha jugado */
+/* ALTER TABLE g03_recomendacion
+    ADD CONSTRAINT CK_COMENTAR_JUEGO
+        CHECK (NOT EXISTS(
+                SELECT 1
+                FROM g03_comentario
+                WHERE id_usuario, id_juego NOT IN (SELECT id_usuario, id_juego
+                                                   FROM g03_juega)
+            ));
+
+ */
+
 CREATE OR REPLACE FUNCTION FN_G03_COMENTAR_JUEGO() RETURNS Trigger AS
 $$
 DECLARE
