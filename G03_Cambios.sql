@@ -35,7 +35,7 @@ END
 $$
     LANGUAGE 'plpgsql';
 
-/* este es un trigger de tabla */
+/* este es un trigger de tabla */ /* Va en comentario o comenta????*/
 CREATE TRIGGER TR_G03_FECHA_COMENTARIOS
     BEFORE INSERT
     ON G03_COMENTA
@@ -227,7 +227,7 @@ LANGUAGE 'plpgsql';
 --D
 /* COMENTARIOS_MES: Listar todos los comentarios realizados durante el último mes descartando aquellos
    juegos de la Categoría “Sin Categorías”. */
-CREATE VIEW COMENTARIOS_MES AS
+CREATE VIEW VW_G03_COMENTARIOS_MES AS
 SELECT comentario, fecha_comentario
 FROM G03_COMENTARIO
 WHERE G03_COMENTARIO.id_juego IN (SELECT id_juego
@@ -238,7 +238,7 @@ WHERE G03_COMENTARIO.id_juego IN (SELECT id_juego
                                       WHERE id_categoria IN (
                                           SELECT id_categoria
                                             FROM g03_categoria
-                                                WHERE descripcion = 'Sin Categorías'
+                                                WHERE descripcion <> 'Sin Categorías'
                                           )
                                   ))
   AND fecha_comentario BETWEEN NOW() - '1 month'::interval AND NOW();
@@ -251,7 +251,7 @@ WHERE G03_COMENTARIO.id_juego IN (SELECT id_juego
 --teniendo en cuenta que sólo pueden comentar aquellos juegos que han jugado.
 -- ESTA IMPLEMENTADO EN trigger B sub d
 
-CREATE VIEW USUARIOS_COMENTADORES AS
+CREATE VIEW VW_G03_USUARIOS_COMENTADORES AS
 SELECT *
 FROM g03_usuario
 WHERE id_usuario IN (SELECT G03_COMENTA.id_usuario
@@ -260,28 +260,38 @@ WHERE id_usuario IN (SELECT G03_COMENTA.id_usuario
                          SELECT id_usuario
                          FROM g03_comentario
                          WHERE fecha_comentario
-                                   BETWEEN NOW() - '1 year'::interval AND NOW()
+                             BETWEEN NOW() - '1 year'::interval AND NOW()
+                             group by g03_comentario.id_usuario
                          HAVING COUNT(id_juego) = (SELECT COUNT(id_juego) FROM G03_JUEGO)));
-
+CREATE VIEW USUARIOS_COMENTADORES AS
+SELECT *
+FROM g03_usuario
+WHERE id_usuario IN (SELECT id_usuario
+                     FROM g03_comenta
+                     WHERE fecha_ultimo_com >= NOW() - interval '1 year'
+                     GROUP BY id_usuario
+                     HAVING count(*) = (SELECT count(*)
+                                         FROM g03_juega));
 /* LOS_20_JUEGOS_MAS_PUNTUADOS: Realizar el ranking de los 20 juegos mejor puntuados por los Usuarios.
    El ranking debe ser generado considerando el promedio del valor puntuado por los usuarios y que el
    juego hubiera sido calificado más de 5 veces. */
 
-CREATE VIEW LOS_20_JUEGOS_MAS_PUNTUADOS AS
+CREATE VIEW VW_G03_LOS_20_JUEGOS_MAS_PUNTUADOS AS
 SELECT *
 FROM g03_juego
 WHERE id_juego IN (SELECT id_juego
                    FROM g03_voto
+                   GROUP BY id_juego
                    HAVING count(*) > 5
                    ORDER BY AVG(valor_voto) ASC
                    LIMIT 20);
-
 /* LOS_10_JUEGOS_MAS_JUGADOS: Generar una vista con los 10 juegos más jugados. */
-
-CREATE VIEW LOS_10_JUEGOS_MAS_JUGADOS AS
+ /* NO ESTA FUNCIONANDO BIEN TRAE LAS ID USUARIOS DESORDENADAS */
+CREATE OR REPLACE VIEW VW_G03_LOS_10_JUEGOS_MAS_JUGADOS AS
 SELECT *
-FROM g03_juego
-WHERE id_juego IN (SELECT id_juego
-                   FROM g03_juega
-                   ORDER BY COUNT(id_juego) ASC
+FROM g03_juego o
+WHERE o.id_juego IN (SELECT a.id_juego
+                   FROM g03_juega a
+                   GROUP BY a.id_juego
+                   ORDER BY COUNT(a.id_juego) DESC
                    LIMIT 10);
