@@ -3,35 +3,13 @@
 /* a. La fecha del primer comentario tiene que ser anterior
    a la fecha del último comentario si este no es nulo */
 
-/*
 ALTER TABLE GR03_comenta
-    ADD CONSTRAINT CK_FECHA_COMENTARIOS
-        CHECK (NOT EXISTS(
-                SELECT 1
-                FROM GR03_comenta
-                WHERE fecha_primer_com > fecha_ultimo_com
-            ));
-*/
---  INSERT INTO gr03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) values (1,9,'2020-01-11','2020-01-08');
--- MODIFICADO PORQUE ESTABA MAL
-CREATE OR REPLACE FUNCTION TRFN_GR03_FECHA_COMENTARIOS() RETURNS Trigger AS
-$$
-DECLARE
-BEGIN
-    IF (NEW.fecha_primer_com > NEW.fecha_ultimo_com AND NEW.fecha_ultimo_com IS NOT NULL) THEN
-        RAISE EXCEPTION 'La fecha de su comentario % es anterior a la fecha del primer comentario %',
-            NEW.fecha_ultimo_com, NEW.fecha_primer_com;
-    END IF;
-    RETURN NEW;
-END
-$$
-    LANGUAGE 'plpgsql';
-/* este es un trigger de tabla */ /* Va en comentario o comenta????*/
-CREATE TRIGGER TR_GR03_FECHA_COMENTARIOS
-    BEFORE INSERT
-    ON gr03_comenta
-    FOR EACH ROW
-EXECUTE PROCEDURE TRFN_GR03_FECHA_COMENTARIOS();
+    ADD CONSTRAINT CK_GR03_FECHA_COMENTARIOS
+        CHECK (fecha_primer_com < fecha_ultimo_com OR fecha_ultimo_com is null);
+DELETE FROM gr03_comentario WHERE id_juego = 2 AND id_usuario = 2;
+DELETE FROM gr03_comenta WHERE fecha_primer_com >= fecha_ultimo_com;
+SELECT * FROM gr03_comenta;
+--INSERT INTO gr03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) values (1,9,'2020-01-11','2020-01-08');
 
 
 /* b.	Cada usuario sólo puede comentar una vez al día cada juego */
@@ -56,7 +34,7 @@ BEGIN
     FROM GR03_COMENTARIO
     WHERE id_juego = NEW.id_juego
       AND id_usuario = NEW.id_usuario
-      AND fecha_comentario = NEW.fecha_comentario;
+      AND extract(DOY from fecha_comentario) = extract(DOY FROM NEW.fecha_comentario);
     IF (fecha_comentario_h is not null) THEN
         RAISE EXCEPTION 'Ya comentaste hoy';
     END IF;
@@ -64,10 +42,11 @@ BEGIN
 END
 $$
     LANGUAGE 'plpgsql';
--- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (1,5,3,'2020-01-11', 'bla bla');
--- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (1,5,4,'2020-01-11', 'bla bla');
+--INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (1,5,8,now(), 'bla bla');
+--INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (1,5,6,now(), 'bla bla');
+
 /* este es un trigger de tabla */
-CREATE TRIGGER TR_GR03_UN_COMENTARIO_DIARIO
+CREATE TRIGGER TR_GR03_COMENTARIO_UN_COMENTARIO_DIARIO
     BEFORE INSERT
     ON GR03_COMENTARIO
     FOR EACH ROW
@@ -75,8 +54,7 @@ EXECUTE PROCEDURE TRFN_GR03_UN_COMENTARIO_DIARIO();
 
 /* c.	Un usuario no puede recomendar un juego si no ha votado previamente dicho juego */
 /*
-ALTER TABLE GR03_recomendacion
-    ADD CONSTRAINT CK_RECOMENDACION_VOTADO
+    CREATE ASSERTION CK_RECOMENDACION_VOTADO
         CHECK (NOT EXISTS(
                 SELECT 1
                 FROM GR03_recomendacion
@@ -84,8 +62,7 @@ ALTER TABLE GR03_recomendacion
                                                    FROM GR03_voto)
             ));
 */
--- INSERT INTO gr03_recomendacion (id_recomendacion, email_recomendado, id_usuario, id_juego) VALUES (1,'mail', 11,11);
--- INSERT INTO gr03_voto (id_voto, valor_voto, id_usuario, id_juego) VALUES (350,4,11,11);
+--INSERT INTO gr03_recomendacion (id_recomendacion, email_recomendado, id_usuario, id_juego) VALUES (1,'mail', 11,11);
 CREATE OR REPLACE FUNCTION TRFN_GR03_RECOMENDACION_VOTADO() RETURNS Trigger AS
 $$
 DECLARE
@@ -105,15 +82,15 @@ $$
     LANGUAGE 'plpgsql';
 -- modificado porque solo puedo recomendar juegos que SI haya votado
 /* este es una asercion (? */
-CREATE TRIGGER TR_GR03_RECOMENDACION_VOTADO
+CREATE TRIGGER TR_GR03_RECOMENDACION_RECOMENDADO_VOTADO
     BEFORE INSERT OR UPDATE of id_usuario,id_juego
     ON GR03_RECOMENDACION
     FOR EACH ROW
 EXECUTE PROCEDURE TRFN_GR03_RECOMENDACION_VOTADO();
 
 /* d.	Un usuario no puede comentar un juego que no ha jugado */
-/* ALTER TABLE GR03_recomendacion
-    ADD CONSTRAINT CK_COMENTAR_JUEGO
+/*
+   CREATE ASSERTION CK_COMENTAR_JUEGO
         CHECK (NOT EXISTS(
                 SELECT 1
                 FROM GR03_comentario
@@ -122,9 +99,9 @@ EXECUTE PROCEDURE TRFN_GR03_RECOMENDACION_VOTADO();
             ));
 
  */
--- INSERT INTO gr03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) VALUES (101,1,'2020-10-10', '2020-10-11');
--- insert into gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,1,'2020-11-1','coment');
--- INSERT INTO gr03_juega (finalizado, id_usuario, id_juego) VALUES (true,101,1);
+--INSERT INTO gr03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) VALUES (101,1,'2020-10-10', '2020-10-11');
+SELECT * FROM gr03_comentario;
+ INSERT INTO gr03_juega (finalizado, id_usuario, id_juego) VALUES (true,101,1);
 CREATE OR REPLACE FUNCTION TRFN_GR03_COMENTAR_JUEGO() RETURNS Trigger AS
 $$
 DECLARE
@@ -138,7 +115,7 @@ BEGIN
       AND id_juego = NEW.id_juego;
     IF (id_user is null
         AND id_game is null) THEN
-        RAISE EXCEPTION 'Solo podras votar juegos que hayas jugado';
+        RAISE EXCEPTION 'Solo podras comentar juegos que hayas jugado';
     END IF;
     RETURN NEW;
 END
@@ -146,7 +123,7 @@ $$
     LANGUAGE 'plpgsql';
 
 /* este es una asercion (? */
-CREATE TRIGGER TR_GR03_COMENTAR_JUEGO
+CREATE TRIGGER TR_GR03_COMENTARIO_COMENTAR_JUEGO
     BEFORE INSERT
     ON GR03_comentario
     FOR EACH ROW
@@ -160,40 +137,53 @@ Los posteriores comentarios sólo deben modificar la fecha de último comentario
 */ /*creo xd*/
 -- INSERT INTO GR03_USUARIO (id_usuario,nombre,apellido,email,id_tipo_usuario,password) VALUES (101,'Cairo','Curry','elit@elitafeugiat.co.uk',18,'PHJ15WBJ9PW');
 -- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,50,NOW(),'comentario');
--- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,80,NOW(),'comentario');
--- INSERT INTO gr03_juega (finalizado, id_usuario, id_juego) VALUES (true,101,1);
+-- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,4110,NOW(),'comentario');
+-- DELETE FROM gr03_comentario WHERE id_usuario= 101 AND id_juego = 1 AND id_comentario= 4110;
+-- select * from gr03_comenta WHERE id_usuario = 101;
+INSERT INTO gr03_juega (finalizado, id_usuario, id_juego) VALUES (true,101,1);
 CREATE OR REPLACE FUNCTION TRFN_GR03_AUDIT_COMENTA_COMENTARIO()
 RETURNS Trigger AS
 $$
 DECLARE
-    fecha_primer_coment  GR03_comenta.fecha_primer_com%type;
+    fecha_coment  GR03_comenta.fecha_primer_com%type;
 BEGIN
-    SELECT fecha_primer_com into fecha_primer_coment
+    IF (tg_op = 'INSERT' OR tg_op = 'UPDATE') THEN
+    SELECT fecha_primer_com into fecha_coment
     FROM GR03_comenta
     WHERE GR03_comenta.id_usuario = NEW.id_usuario
     AND GR03_comenta.id_juego = NEW.id_juego;
-    IF (fecha_primer_coment is null) THEN
+    IF (fecha_coment is null) THEN
         INSERT INTO GR03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) VALUES (NEW.id_usuario,NEW.id_juego,NEW.fecha_comentario, null);
     ELSE
         UPDATE GR03_comenta SET fecha_ultimo_com = NEW.fecha_comentario WHERE id_juego = NEW.id_juego AND id_usuario = NEW.id_usuario;
     END IF;
+
     RETURN NEW;
+    ELSE
+        SELECT fecha_comentario into fecha_coment
+            FROM gr03_comentario
+                ORDER BY fecha_comentario DESC
+                LIMIT 2 OFFSET 1;
+        IF (fecha_coment < old.fecha_comentario) THEN
+            UPDATE GR03_comenta SET fecha_ultimo_com = fecha_coment WHERE id_juego = OLD.id_juego AND id_usuario = OLD.id_usuario;
+        end if;
+        RETURN OLD;
+    end if;
 END;
 $$
     LANGUAGE 'plpgsql';
 
-CREATE TRIGGER TR_GR03_AUDIT_COMENTA_COMENTARIO
-    BEFORE INSERT OR UPDATE OF id_usuario, id_juego, fecha_comentario
+CREATE TRIGGER TR_GR03_COMENTARIO_AUDIT_COMENTA_COMENTARIO
+    BEFORE INSERT OR UPDATE OF id_usuario, id_juego, id_comentario OR DELETE
     ON GR03_comentario
     FOR EACH ROW
 EXECUTE PROCEDURE TRFN_GR03_AUDIT_COMENTA_COMENTARIO();
 
 /* 2- Dado un patrón de búsqueda devolver todos los datos de el o los usuarios junto con la cantidad de
    juegos que ha jugado y la cantidad de votos que ha realizado. */
-
-DROP FUNCTION FN_GR03_PATRON_BUSQUEDA_APELLIDO(patron varchar);
 CREATE OR REPLACE FUNCTION FN_GR03_PATRON_BUSQUEDA_APELLIDO(patron varchar)
 RETURNS TABLE (
+
         id_usuarío GR03_usuario.id_usuario%type,
         apellido GR03_usuario.apellido%type,
         nombre GR03_usuario.nombre%type,
