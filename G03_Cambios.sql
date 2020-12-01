@@ -159,8 +159,10 @@ BEGIN
             FROM gr03_comentario
                 ORDER BY fecha_comentario DESC
                 LIMIT 2 OFFSET 1;
-        IF (fecha_coment < old.fecha_comentario) THEN
+        IF (fecha_coment < old.fecha_comentario AND fecha_coment is not null) THEN
             UPDATE GR03_comenta SET fecha_ultimo_com = fecha_coment WHERE id_juego = OLD.id_juego AND id_usuario = OLD.id_usuario;
+        ELSE
+            DELETE FROM GR03_COMENTA WHERE id_usuario = OLD.id_usuario AND id_juego = OLD.id_juego;
         end if;
         RETURN OLD;
     end if;
