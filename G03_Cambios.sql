@@ -250,10 +250,10 @@ WHERE id_usuario IN (SELECT GR03_COMENTA.id_usuario
    juego hubiera sido calificado más de 5 veces. */
 /* NO ES ACTUALIZABLE */
 CREATE VIEW GR03_LOS_20_JUEGOS_MAS_PUNTUADOS AS
-SELECT j.id_juego, j.nombre_juego, j.descripcion_juego, j.id_categoria FROM gr03_juego j join gr03_voto g03v on j.id_juego = g03v.id_juego
+SELECT j.id_juego, j.nombre_juego, j.descripcion_juego, j.id_categoria, round(AVG(g03v.valor_voto),2) as Puntaje FROM gr03_juego j join gr03_voto g03v on j.id_juego = g03v.id_juego
                     GROUP BY j.id_juego
-                   HAVING count(*) > 5
-                   ORDER BY AVG(valor_voto) ASC
+                   HAVING count(*) > 1
+                   ORDER BY AVG(valor_voto) DESC
                    LIMIT 20;
 /* LOS_10_JUEGOS_MAS_JUGADOS: Generar una vista con los 10 juegos más jugados. */
 CREATE OR REPLACE VIEW GR03_LOS_10_JUEGOS_MAS_JUGADOS AS
