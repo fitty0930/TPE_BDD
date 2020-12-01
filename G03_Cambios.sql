@@ -20,7 +20,6 @@ ALTER TABLE GR03_comentario
                 having COUNT(*)>1
             ));
 */
-
 CREATE OR REPLACE FUNCTION TRFN_GR03_UN_COMENTARIO_DIARIO() RETURNS Trigger AS
 $$
 DECLARE
@@ -96,8 +95,7 @@ EXECUTE PROCEDURE TRFN_GR03_RECOMENDACION_VOTADO();
             ));
 
  */
---INSERT INTO gr03_comenta (id_usuario, id_juego, fecha_primer_com, fecha_ultimo_com) VALUES (101,1,'2020-10-10', '2020-10-11');
---INSERT INTO gr03_juega (finalizado, id_usuario, id_juego) VALUES (true,101,1);
+--INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (3,1,500,now(),'hola');
 CREATE OR REPLACE FUNCTION TRFN_GR03_COMENTAR_JUEGO() RETURNS Trigger AS
 $$
 DECLARE
@@ -131,7 +129,6 @@ La primera vez que se inserta un comentario de un usuario para un juego se debe 
     en ambas tablas, colocando la fecha del primer comentario y última fecha comentario en nulo.
 Los posteriores comentarios sólo deben modificar la fecha de último comentario e insertar en COMENTARIO
 */ /*creo xd*/
--- INSERT INTO GR03_USUARIO (id_usuario,nombre,apellido,email,id_tipo_usuario,password) VALUES (101,'Cairo','Curry','elit@elitafeugiat.co.uk',18,'PHJ15WBJ9PW');
 -- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,1,NOW(),'comentario');
 -- INSERT INTO gr03_comentario (id_usuario, id_juego, id_comentario, fecha_comentario, comentario) VALUES (101,1,2,NOW(),'comentario');
 -- DELETE FROM gr03_comentario WHERE id_usuario= 101 AND id_juego = 1 AND id_comentario= 2;
